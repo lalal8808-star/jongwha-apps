@@ -114,14 +114,30 @@
             padding: 5px;
         }
 
-        .results-container { margin-top: 10px; }
+        #result-display {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e5e5ea;
+            border-radius: 10px;
+            width: 100%;
+            display: none;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #d1d1d6;
+        }
+
+        .result-item:last-child { border-bottom: none; }
     </style>
 </head>
 <body>
 
-    <h1>🪜 사다리타기</h1>
+    <h1 id="title">🪜 사다리타기</h1>
 
-    <div class0-container id="setup-ui" class="setup-container">
+    <div id="setup-ui" class="setup-container">
         <div class="input-row">
             <div class="input-group">
                 <label>참가자 수</label>
@@ -136,17 +152,21 @@
         <canvas id="ladder-canvas"></canvas>
         <div id="names-bottom" class="results-container"></div>
         
-        <button class="btn-primary" style="margin-top: 20px;" onclick="startLadder()">결과 보기</button>
+        <button id="action-btn" class="btn-primary" style="margin-top: 20px;" onclick="startLadder()">결과 보기</button>
         <button class="btn-reset" onclick="location.reload()">다시 하기</button>
+
+        <div id="result-display">
+            <h3 style="margin-top:0; text-align:center;">🎊 결과 발표 🎊</h3>
+            <div id="result-list"></div>
+        </div>
     </div>
 
     <script>
         let count = 0;
         let width = 0;
         let height = 400;
-        let nodes = []; // Horizontal bars
-        let players = [];
-        let results = [];
+        let nodes = []; 
+        let playerPaths = [];
 
         const canvas = document.getElementById('ladder-canvas');
         const ctx = canvas.getContext('2d');
@@ -175,14 +195,12 @@
             const spacing = width / (count + 1);
 
             for (let i = 0; i < count; i++) {
-                // Top inputs (Names)
                 const input = document.createElement('input');
                 input.className = 'node-input';
                 input.value = `P${i+1}`;
                 input.style.width = `${spacing - 10}px`;
                 topDiv.appendChild(input);
 
-                // Bottom inputs (Results)
                 const resInput = document.createElement('input');
                 resInput.className = 'node-input';
                 resInput.value = `R${i+1}`;
@@ -190,18 +208,16 @@
                 bottomDiv.appendChild(resInput);
             }
 
-            // Generate random horizontal bars
             nodes = [];
             for (let i = 0; i < count - 1; i++) {
-                let barCount = Math.floor(Math.random() * 3) + 2; // 2~4 bars per level
+                let barCount = Math.floor(Math.random() * 3) + 2;
                 for (let j = 0; j < barCount; j++) {
                     nodes.push({
-                        column: i, // connects column i and i+1
+                        column: i, 
                         y: Math.random() * (height - 60) + 30
                     });
                 }
             }
-            // Sort nodes by y to draw correctly
             nodes.sort((a, b) => a.y - b.y);
         }
 
@@ -213,7 +229,6 @@
 
             const spacing = width / (count + 1);
 
-            // Draw vertical lines
             for (let i = 0; i < count; i++) {
                 const x = spacing * (i + 1);
                 ctx.beginPath();
@@ -222,7 +237,6 @@
                 ctx.stroke();
             }
 
-            // Draw horizontal bars
             nodes.forEach(node => {
                 const xStart = spacing * (node.column + 1);
                 const xEnd = spacing * (node.column + 2);
@@ -234,48 +248,42 @@
         }
 
         async function startLadder() {
+            const actionBtn = document.getElementById('action-btn');
+            actionBtn.disabled = true;
+            actionBtn.style.opacity = 0.5;
+
             const spacing = width / (count + 1);
             const topInputs = document.querySelectorAll('#names-top .node-input');
             const bottomInputs = document.querySelectorAll('#names-bottom .node-input');
             
-            let playerPaths = [];
+            playerPaths = [];
 
             for (let i = 0; i < count; i++) {
                 let currentXIdx = i;
                 let pathPoints = [{x: spacing * (i + 1), y: 0}];
-                
-                // Sort nodes by Y to traverse downwards
                 const sortedNodes = [...nodes].sort((a, b) => a.y - b.y);
-                
                 let currentY = 0;
 
                 for (const node of sortedNodes) {
                     if (node.y <= currentY) continue;
-
-                    // Move down to the bar
                     pathPoints.push({x: spacing * (currentXIdx + 1), y: node.y});
-                    
-                    // Move horizontally
                     if (node.column === currentXIdx) {
-                        currentXIdx++; // Move right
+                        currentXIdx++; 
                     } else if (node.column === currentXIdx - 1) {
-                        currentXIdx--; // Move left
+                        currentXIdx--; 
                     }
                     pathPoints.push({x: spacing * (currentXIdx + 1), y: node.y});
                     currentY = node.y;
                 }
-
                 pathPoints.push({x: spacing * (currentXIdx + 1), y: height});
+                
                 playerPaths.push({
-                    startIdx: i,
-                    endIdx: currentXIdx,
-                    points: pathPoints,
                     name: topInputs[i].value,
-                    result: bottomInputs[currentXIdx].value
+                    result: bottomInputs[currentXIdx].value,
+                    points: pathPoints
                 });
             }
 
-            // Animation
             ctx.lineWidth = 6;
             ctx.strokeStyle = '#007aff';
 
@@ -283,7 +291,7 @@
                 await animatePath(path.points);
             }
 
-            alert("사다리타기 완료!");
+            showResults();
         }
 
         function animatePath(points) {
@@ -294,20 +302,38 @@
                         resolve();
                         return;
                     }
-
                     const start = points[step];
                     const end = points[step + 1];
-
                     ctx.beginPath();
                     ctx.moveTo(start.x, start.y);
                     ctx.lineTo(end.x, end.y);
                     ctx.stroke();
-
                     step++;
                     requestAnimationFrame(drawStep);
                 }
                 drawStep();
             });
+        }
+
+        function showResults() {
+            const resultDisplay = document.getElementById('result-display');
+            const resultList = document.getElementById('result-list');
+            resultList.innerHTML = '';
+
+            playerPaths.forEach(path => {
+                const item = document.createElement('div');
+                item.className = 'result-item';
+                item.innerHTML = `<span>${path.name}</span> <span>➔ ${path.result}</span>`;
+                resultList.appendChild(item);
+            });
+
+            resultDisplay.style.display = 'block';
+            document.getElementById('action-btn').style.display = 'none';
+            
+            // Scroll to results
+            setTimeout(() => {
+                resultDisplay.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
         }
     </script>
 </body>
