@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>iOS Timer</title>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --text-color: #ffffff;
+            --accent-color: #ff3b30;
+            --secondary-color: #34c759;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .timer-display {
+            font-size: 5rem;
+            font-weight: 200;
+            font-variant-numeric: tabular-nums;
+            margin-bottom: 2rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+        }
+
+        button {
+            border: none;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.2s;
+        }
+
+        button:active {
+            opacity: 0.6;
+        }
+
+        .btn-start { background-color: var(--secondary-color); color: white; }
+        .btn-pause { background-color: #ffcc00; color: black; display: none; }
+        .btn-reset { background-color: #8e8e93; color: white; }
+
+        .input-group {
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            background: #1c1c1e;
+            border: 1px solid #38383a;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            width: 60px;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+
+        label {
+            font-size: 0.8rem;
+            color: #8e8e93;
+        }
+
+        .input-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="input-group" id="setup-ui">
+        <div class="input-container">
+            <input type="number" id="min" value="0" min="0" max="99">
+            <label>MIN</label>
+        </div>
+        <div class="input-container">
+            <input type="number" id="sec" value="0" min="0" max="59">
+            <label>SEC</label>
+        </div>
+    </div>
+
+    <div class="timer-display" id="display">00:00</div>
+
+    <div class="controls">
+        <button class="btn-reset" id="reset-btn">Reset</button>
+        <button class="btn-start" id="start-btn">Start</button>
+        <button class="btn-pause" id="pause-btn">Pause</button>
+    </div>
+
+    <audio id="alarm-sound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+
+    <script>
+        let timeLeft = 0;
+        let timerId = null;
+
+        const display = document.getElementById('display');
+        const startBtn = document.getElementById('start-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const minInput = document.getElementById('min');
+        const secInput = document.getElementById('sec');
+        const setupUi = document.getElementById('setup-ui');
+        const alarmSound = document.getElementById('alarm-sound');
+
+        function updateDisplay() {
+            const m = Math.floor(timeLeft / 60);
+            const s = timeLeft % 60;
+            display.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function startTimer() {
+            if (timerId) return;
+
+            // If starting from zero/setup
+            if (timeLeft === 0) {
+                const m = parseInt(minInput.value) || 0;
+                const s = parseInt(secInput.value) || 0;
+                timeLeft = (m * 60) + s;
+            }
+
+            if (timeLeft <= 0) return;
+
+            setupUi.style.visibility = 'hidden';
+            startBtn.style.display = 'none';
+            pauseBtn.style.display = 'flex';
+
+            timerId = setInterval(() => {
+                timeLeft--;
+                updateDisplay();
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerId);
+                    timerId = null;
+                    alarmSound.play();
+                    alert('Time is up!');
+                    resetTimer();
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            clearInterval(timerId);
+            timerId = null;
+            startBtn.style.display = 'flex';
+            pauseBtn.style.display = 'none';
+            setupUi.style.visibility = 'visible';
+        }
+
+        function resetTimer() {
+            clearInterval(timerId);
+            timerId = null;
+            timeLeft = 0;
+            updateDisplay();
+            startBtn.style.display = 'flex';
+            pauseBtn.style.display = 'none';
+            setupUi.style.visibility = 'visible';
+        }
+
+        startBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            startTimer();
+        });
+
+        pauseBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            pauseTimer();
+        });
+
+        resetBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            resetTimer();
+        });
+
+        // Prevent zoom on double tap for iOS
+        document.addEventListener('touchstart', function (event) {
+            if (event.touches.length > 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+
+    </script>
+</body>
+</html>
