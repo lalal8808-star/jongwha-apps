@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Brick Breaker</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --accent-color: #00d2ff;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            touch-action: none; /* Prevent default browser gestures */
+            -webkit-tap-highlight-color: transparent;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: #000;
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.2);
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: white;
+            pointer-events: none;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            z-index: 10;
+        }
+        .btn {
+            padding: 15px 40px;
+            font-size: 24px;
+            background: var(--accent-color);
+            border: none;
+            border-radius: 30px;
+            color: white;
+            font-weight: bold;
+            margin-top: 20px;
+            pointer-events: auto;
+            box-shadow: 0 4px 15px rgba(0, 210, 255, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">Score: <span id="score">0</span></div>
+    <div id="overlay">
+        <h1 id="msg">BRICK BREAKER</h1>
+        <button class="btn" onclick="startGame()">START</button>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const overlay = document.getElementById('overlay');
+        const msgEl = document.getElementById('msg');
+
+        // Game Constants
+        let score = 0;
+        let gameRunning = false;
+
+        // Paddle
+        const paddleHeight = 15;
+        let paddleWidth = 80;
+        let paddleX;
+
+        // Ball
+        let x, y, dx, dy;
+        const ballRadius = 8;
+
+        // Bricks
+        const brickRowCount = 5;
+        const brickColumnCount = 6;
+        let brickWidth, brickHeight, brickPadding, brickOffsetTop, brickOffsetLeft;
+        let bricks = [];
+
+        function initDimensions() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            paddleWidth = canvas.width * 0.25;
+            if (paddleWidth < 60) paddleWidth = 70;
+
+            brickPadding = 10;
+            brickOffsetTop = 60;
+            brickOffsetLeft = 20;
+            brickWidth = (canvas.width - (brickOffsetLeft * 2) - (brickPadding * (brickColumnCount - 1))) / brickColumnCount;
+            brickHeight = 25;
+
+            paddleX = (canvas.width - paddleWidth) / 2;
+        }
+
+        function initGame() {
+            score = 0;
+            scoreEl.innerText = score;
+            x = canvas.width / 2;
+            y = canvas.height - 50;
+            dx = 4;
+            dy = -4;
+
+            bricks = [];
+            for (let c = 0; c < brickColumnCount; c++) {
+                bricks[c] = [];
+                for (let r = 0; r < brickRowCount; r++) {
+                    bricks[c][r] = { x: 0, y: 0, status: 1 };
+                }
+            }
+        }
+
+        // Touch Controls (iOS Optimized)
+        document.addEventListener('touchstart', handleTouch, { passive: false });
+        document.addEventListener('touchmove', handleTouch, { passive: false });
+
+        function handleTouch(e) {
+            if (!gameRunning) return;
+            e.preventDefault(); // Prevent scrolling/zooming
+            const touch = e.touches[0];
+            const relativeX = touch.clientX - canvas.offsetLeft;
+            if (relativeX > 0 && relativeX < canvas.width) {
+                paddleX = relativeX - paddleWidth / 2;
+            }
+        }
+
+        function startGame() {
+            overlay.style.display = 'none';
+            initDimensions();
+            initGame();
+            gameRunning = true;
+            draw();
+        }
+
+        function collisionDetection() {
+            for (let c = 0; c < brickColumnCount; c++) {
+                for (let r = 0; r < brickRowCount; r++) {
+                    const b = bricks[c][r];
+                    if (b.status === 1) {
+                        if (x > b.x && x < b.x + brickWidth && y > b.y && y < b.y + brickHeight) {
+                            dy = -dy;
+                            b.status = 0;
+                            score++;
+                            scoreEl.innerText = score;
+                            if (score === brickRowCount * brickColumnCount) {
+                                gameOver(true);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function gameOver(win) {
+            gameRunning = false;
+            overlay.style.display = 'flex';
+            msgEl.innerText = win ? "YOU WIN!" : "GAME OVER";
+            msgEl.style.color = win ? "#00ff88" : "#ff4444";
+        }
+
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(x, y, ballRadius, 0, Math.PI * 2);
+            ctx.fillStyle = "#fff";
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawPaddle() {
+            ctx.beginPath();
+            ctx.rect(paddleX, canvas.height - paddleHeight - 10, paddleWidth, paddleHeight);
+            ctx.fillStyle = "#00d2ff";
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawBricks() {
+            for (let c = 0; c < brickColumnCount; c++) {
+                for (let r = 0; r < brickRowCount; r++) {
+                    if (bricks[c][r].status === 1) {
+                        const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
+                        const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
+                        bricks[c][r].x = brickX;
+                        bricks[c][r].y = brickY;
+                        ctx.beginPath();
+                        ctx.rect(brickX, brickY, brickWidth, brickHeight);
+                        ctx.fillStyle = `hsl(${r * 40 + 180}, 70%, 50%)`;
+                        ctx.fill();
+                        ctx.closePath();
+                    }
+                }
+            }
+        }
+
+        function draw() {
+            if (!gameRunning) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBricks();
+            drawBall();
+            drawPaddle();
+            collisionDetection();
+
+            // Wall collision
+            if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
+                dx = -dx;
+            }
+            if (y + dy < ballRadius) {
+                dy = -dy;
+            } else if (y + dy > canvas.height - ballRadius - 10) {
+                if (x > paddleX && x < paddleX + paddleWidth) {
+                    dy = -dy;
+                    // Add slight angle change based on where it hits the paddle
+                    let hitPoint = (x - (paddleX + paddleWidth / 2)) / (paddleWidth / 2);
+                    dx = hitPoint * 5;
+                } else if (y + dy > canvas.height) {
+                    gameOver(false);
+                }
+            }
+
+            x += dx;
+            y += dy;
+
+            requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('resize', initDimensions);
+        initDimensions();
+    </script>
+</body>
+</html>
